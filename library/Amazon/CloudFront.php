@@ -24,13 +24,13 @@
  * @author Ben Ramsey <ramsey@php.net>
  */
 class Amazon_CloudFront
-{   
+{
     /**
      * The API_VERSION constant represents the version of the Amazon CloudFront
      * service that this library uses.
      */
     const API_VERSION = '2008-06-30';
-    
+
     /**
      * The DISTRIBUTION_URI constant represents the URI of the Amazon CloudFront
      * distribution resource.
@@ -38,17 +38,17 @@ class Amazon_CloudFront
     const DISTRIBUTION_URI = '/2008-06-30/distribution';
 
     /**
-     * The HOST constant represents the host domain for Amazon CloudFront 
+     * The HOST constant represents the host domain for Amazon CloudFront
      * requests.
      */
     const HOST = 'cloudfront.amazonaws.com';
-    
+
     /**
-     * The NAMESPACE constant represents the namespace for Amazon CloudFront 
+     * The NAMESPACE constant represents the namespace for Amazon CloudFront
      * XML documents.
      */
     const NAMESPACE = 'http://cloudfront.amazonaws.com/doc/2008-06-30/';
-    
+
     /**
      * AWS access key ID
      * @var string
@@ -80,14 +80,14 @@ class Amazon_CloudFront
         $this->_secretAccessKey = $secretAccessKey;
         $this->_httpDate = utf8_encode(gmdate('D, j M Y H:i:s \G\M\T'));
     }
-    
+
     /**
-     * Generates the HTTP Authorization header value for Amazon CloudFront 
+     * Generates the HTTP Authorization header value for Amazon CloudFront
      * requests
      *
      * According to the Amazon CloudFront documentation, the Authorization
      * header value should follow this format:
-     * 
+     *
      * <pre><code>
      * "AWS" + " " + AWSAccessKeyID + ":" + Base64(HMAC-SHA1(UTF-8(Date), UTF-8(AWSSecretAccessKey)))
      * </code></pre>
@@ -99,19 +99,19 @@ class Amazon_CloudFront
         $value  = 'AWS ';
         $value .= $this->_accessKeyId . ':';
         $value .= base64_encode(hash_hmac('sha1', $this->_httpDate, utf8_encode($this->_secretAccessKey), true));
-        
+
         return $value;
     }
-    
+
     /**
      * Sends a request through a socket connection
      *
-     * Returns an appropriate Amazon CloudFront object if there is a response 
-     * body. If the response is a 200 series status code and there is no 
+     * Returns an appropriate Amazon CloudFront object if there is a response
+     * body. If the response is a 200 series status code and there is no
      * response body, then it returns boolean true or the HTTP ETag header, if
      * present.
      *
-     * This method borrows some code from the Zend_Http_Client_Adapter_Socket 
+     * This method borrows some code from the Zend_Http_Client_Adapter_Socket
      * class in the {@link http://framework.zend.com/ Zend Framework}.
      *
      * @param string $method The HTTP method to use
@@ -143,14 +143,14 @@ class Amazon_CloudFront
             $request .= "Content-Length: {$length}\r\n";
             $request .= "Content-Type: application/xml\r\n";
         }
-        
+
         // Add additional headers to the request
         foreach ($headers as $header => $value) {
             $request .= trim($header) . ': ' . trim($value) . "\r\n";
         }
 
         $request .= "Connection: close\r\n\r\n";
-        
+
         if (!is_null($body)) {
             $request .= $body;
         }
@@ -161,7 +161,7 @@ class Amazon_CloudFront
                                         $errstr,
                                         30,
                                         STREAM_CLIENT_CONNECT);
-        
+
         if (! @fwrite($socket, $request)) {
             require_once 'Amazon/CloudFront/Exception.php';
             throw new Amazon_CloudFront_Exception('Error writing request to server');
@@ -170,7 +170,7 @@ class Amazon_CloudFront
         $status = '';
         $responseHeaders = array();
         $responseBody = '';
-        
+
         // Get the response status and headers
         while (($line = @fgets($socket)) !== false) {
             if (strpos($line, 'HTTP') !== false) {
@@ -182,11 +182,11 @@ class Amazon_CloudFront
             }
         }
         $responseHeaders = array_change_key_case($responseHeaders, CASE_LOWER);
-        
+
         // Read to the end of the response
-        if (isset($responseHeaders['transfer-encoding']) 
+        if (isset($responseHeaders['transfer-encoding'])
             && strtolower($responseHeaders['transfer-encoding']) == 'chunked') {
-            
+
             do {
                 $line  = @fgets($socket);
                 $chunk = $line;
@@ -228,20 +228,20 @@ class Amazon_CloudFront
                 $responseBody .= $line;
             }
         }
-        
+
         if (isset($responseHeaders['connection']) && strtolower($responseHeaders['connection']) == 'close') {
             @fclose($socket);
         }
-        
+
         // Get the status code
         preg_match('(\d{3})', $status, $matches);
         $statusCode = (isset($matches[0]) ? $matches[0] : null);
-        
+
         if (is_null($statusCode)) {
             require_once 'Amazon/CloudFront/Exception.php';
             throw new Amazon_CloudFront_Exception('Error receiving response from server');
         }
-        
+
         // If the status code is in the 200 series and there is no response
         // body, then simply return true.
         if ($statusCode >= 200 && $statusCode < 300 && empty($responseBody)) {
@@ -262,13 +262,13 @@ class Amazon_CloudFront
             require_once 'Amazon/CloudFront/Exception.php';
             throw new Amazon_CloudFront_Exception('XML document not found in response body');
         }
-        
+
         // Capture the ETag header, if present
         $etag = null;
         if (isset($responseHeaders['etag'])) {
             $etag = $responseHeaders['etag'];
         }
-        
+
         switch ($dom->documentElement->nodeName) {
             case 'Distribution':
                 require_once 'Amazon/CloudFront/Distribution.php';
@@ -292,7 +292,7 @@ class Amazon_CloudFront
                 throw new Amazon_CloudFront_Exception('Invalid response document from server');
         }
     }
-    
+
     /**
      * Creates a distribution on Amazon CloudFront
      *
@@ -322,8 +322,8 @@ class Amazon_CloudFront
             throw new Amazon_CloudFront_Exception(
                 'The distribution must first be disabled before it can be deleted');
         }
-        
-        // Check the status of the distribution. If the distribution status 
+
+        // Check the status of the distribution. If the distribution status
         // is "InProgress," throw an exception; cannot delete until distribution
         // is no longer in progress.
         $checkDist = $this->getDistribution($distribution->getId());
@@ -334,13 +334,13 @@ class Amazon_CloudFront
         } else if ($distribution->getEtag() != $checkDist->getEtag()) {
             $distribution->setEtag($checkDist->getEtag());
         }
-        
+
         $headers = array('If-Match' => $distribution->getEtag());
-        
+
         $uri = self::DISTRIBUTION_URI . '/' . urlencode($distribution->getId());
         return $this->_sendRequest('DELETE', $uri, null, $headers);
     }
-    
+
     /**
      * Retrieves a distribution from Amazon CloudFront
      *
@@ -352,40 +352,40 @@ class Amazon_CloudFront
         $uri = self::DISTRIBUTION_URI . '/' . urlencode($id);
         return $this->_sendRequest('GET', $uri);
     }
-    
+
     /**
      * Retrieves a list of distributions from Amazon CloudFront
      *
      * @param string $marker Use this when paginating results to indicate where
      *                       in your list of distributions to begin. The results
      *                       include distributions in the list that occur after
-     *                       the marker. To get the next page of results, set 
+     *                       the marker. To get the next page of results, set
      *                       the Marker to the value of the NextMarker from the
-     *                       current page's response (which is also the ID of 
+     *                       current page's response (which is also the ID of
      *                       the last distribution on that page).
-     * @param int $maxItems The maximum number of distributions you want in the 
+     * @param int $maxItems The maximum number of distributions you want in the
      *                      response body.
      * @return Amazon_CloudFront_Distribution_List
      */
     public function getDistributionList($marker = null, $maxItems = null)
     {
         $query = array();
-        
+
         if (!is_null($marker)) {
             $query['Marker'] = $marker;
         }
-        
+
         if (!is_null($maxItems)) {
             $query['MaxItems'] = $maxItems;
         }
-        
+
         $queryString = http_build_query($query);
-        
+
         $uri = self::DISTRIBUTION_URI . ($queryString ? "?{$queryString}" : '');
 
         return $this->_sendRequest('GET', $uri);
     }
-    
+
     /**
      * Updates a distribution's configuration and returns true on success
      *
@@ -393,9 +393,9 @@ class Amazon_CloudFront
      * @return Amazon_CloudFront_Distribution
      */
     public function updateDistribution(Amazon_CloudFront_Distribution $distribution)
-    {        
+    {
         $headers = array('If-Match' => $distribution->getEtag());
-        
+
         $uri = self::DISTRIBUTION_URI . '/' . urlencode($distribution->getId()) . '/config';
         $dom = $distribution->getConfig()->generateDom();
         $response = $this->_sendRequest('PUT', $uri, $dom->saveXML(), $headers);
@@ -405,7 +405,7 @@ class Amazon_CloudFront
         } else if (is_string($response)) {
             $distribution->setEtag($response);
         }
-        
+
         return $distribution;
     }
 }

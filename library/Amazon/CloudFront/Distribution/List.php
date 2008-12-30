@@ -29,25 +29,25 @@ require_once 'Amazon/CloudFront/Distribution.php';
  * @author Ben Ramsey <ramsey@php.net>
  */
 class Amazon_CloudFront_Distribution_List extends ArrayObject
-{   
+{
     /**
      * A flag indicating whether more distributions remain
      * @var bool
      */
     protected $_isTruncated;
-    
+
     /**
      * The value provided for the Marker request parameter
      * @var string
      */
     protected $_marker;
-    
+
     /**
      * The value provided for the MaxItems request parameter.
      * @var string
      */
     protected $_maxItems;
-    
+
     /**
      * If $_isTruncated is true, this variable contains the value to use for the
      * Marker request parameter to continue listing distributions
@@ -67,7 +67,7 @@ class Amazon_CloudFront_Distribution_List extends ArrayObject
         $this->_marker = (string) $sxe->Marker;
         $this->_maxItems = (string) $sxe->MaxItems;
         $this->_nextMarker = (string) $sxe->NextMarker;
-        
+
         // Get distribution summaries to add to this ArrayObject
         $distributions = array();
         foreach ($sxe->DistributionSummary as $distribution) {
@@ -76,7 +76,7 @@ class Amazon_CloudFront_Distribution_List extends ArrayObject
 
         parent::__construct($distributions);
     }
-    
+
     /**
      * Returns the value provided for the Marker request parameter
      *
@@ -86,7 +86,7 @@ class Amazon_CloudFront_Distribution_List extends ArrayObject
     {
         return $this->_marker;
     }
-    
+
     /**
      * Returns the value provided for the MaxItems request parameter
      *
@@ -96,7 +96,7 @@ class Amazon_CloudFront_Distribution_List extends ArrayObject
     {
         return $this->_maxItems;
     }
-    
+
     /**
      * Returns the Marker value to use to continue listing distributions
      *
@@ -106,7 +106,7 @@ class Amazon_CloudFront_Distribution_List extends ArrayObject
     {
         return $this->_nextMarker;
     }
-    
+
     /**
      * Returns true if more distributions remain to be listed
      *
