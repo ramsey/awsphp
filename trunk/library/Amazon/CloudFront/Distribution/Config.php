@@ -30,7 +30,7 @@ class Amazon_CloudFront_Distribution_Config
      * @var string
      */
     protected $_callerReference;
-    
+
     /**
      * Array of CNAME domains for the distribution
      * @var array
@@ -42,13 +42,13 @@ class Amazon_CloudFront_Distribution_Config
      * @var string
      */
     protected $_comment;
-    
+
     /**
      * Flag indicating whether the distribution is enabled to accept end user requests
      * @var bool
      */
     protected $_enabled;
-    
+
     /**
      * The origin Amazon S3 bucket associated with this distribution
      * @var string
@@ -64,16 +64,16 @@ class Amazon_CloudFront_Distribution_Config
      * @return void
      */
     public function __construct(SimpleXMLElement $sxe = null)
-    {   
+    {
         if (!is_null($sxe)) {
             $this->setComment((string) $sxe->Comment);
             $this->setEnabled((string) $sxe->Enabled == 'true' ? true : false);
             $this->setOrigin((string) $sxe->Origin);
-            
+
             if ($sxe->CallerReference) {
                 $this->setCallerReference((string) $sxe->CallerReference);
             }
-            
+
             if ($sxe->CNAME) {
                 foreach ($sxe->CNAME as $cname) {
                     $this->addCname((string) $cname);
@@ -81,7 +81,7 @@ class Amazon_CloudFront_Distribution_Config
             }
         }
     }
-    
+
     /**
      * Adds a new CNAME to the distribution's config
      *
@@ -95,7 +95,7 @@ class Amazon_CloudFront_Distribution_Config
     }
 
     /**
-     * Generates and returns a DOMDocument representing the DistributionConfig 
+     * Generates and returns a DOMDocument representing the DistributionConfig
      * element for use in POST and PUT requests.
      *
      * @return DOMDocument
@@ -103,57 +103,57 @@ class Amazon_CloudFront_Distribution_Config
     public function generateDom()
     {
         require_once 'Amazon/CloudFront.php';
-        
+
         $dom = new DOMDocument();
 
         $root = $dom->createElementNS(
-            Amazon_CloudFront::NAMESPACE, 
+            Amazon_CloudFront::NAMESPACE,
             'DistributionConfig');
         $dom->appendChild($root);
 
         if (empty($this->_origin)) {
             require_once 'Amazon/CloudFront/Exception.php';
             throw new Amazon_CloudFront_Exception(
-                "DistributionConfig requires 'Origin'"); 
+                "DistributionConfig requires 'Origin'");
         }
         $origin = $dom->createElementNS(
-            Amazon_CloudFront::NAMESPACE, 
+            Amazon_CloudFront::NAMESPACE,
             'Origin',
             $this->getOrigin());
         $root->appendChild($origin);
 
         $ref = $dom->createElementNS(
-            Amazon_CloudFront::NAMESPACE, 
+            Amazon_CloudFront::NAMESPACE,
             'CallerReference',
             $this->getCallerReference());
         $root->appendChild($ref);
 
         foreach ($this->getCname() as $cname) {
             $cnameElement = $dom->createElementNS(
-                Amazon_CloudFront::NAMESPACE, 
-                'CNAME', 
+                Amazon_CloudFront::NAMESPACE,
+                'CNAME',
                 $cname);
             $root->appendChild($cnameElement);
         }
 
         $comment = $dom->createElementNS(
-            Amazon_CloudFront::NAMESPACE, 
-            'Comment', 
+            Amazon_CloudFront::NAMESPACE,
+            'Comment',
             $this->getComment());
         $root->appendChild($comment);
 
         $enabled = $dom->createElementNS(
-            Amazon_CloudFront::NAMESPACE, 
-            'Enabled', 
+            Amazon_CloudFront::NAMESPACE,
+            'Enabled',
             $this->isEnabled(true));
         $root->appendChild($enabled);
-        
+
         return $dom;
     }
-    
+
     /**
      * Returns the caller reference identifier
-     * 
+     *
      * @return string
      */
     public function getCallerReference()
@@ -164,7 +164,7 @@ class Amazon_CloudFront_Distribution_Config
 
         return $this->_callerReference;
     }
-    
+
     /**
      * Returns the array of CNAME values or, optionally, the CNAME at $index
      *
@@ -175,10 +175,10 @@ class Amazon_CloudFront_Distribution_Config
         if (is_null($index)) {
             return $this->_cname;
         }
-        
+
         return $this->_cname[$index];
     }
-    
+
     /**
      * Returns the comments about the distribution
      *
@@ -188,7 +188,7 @@ class Amazon_CloudFront_Distribution_Config
     {
         return $this->_comment;
     }
-    
+
     /**
      * Returns the Amazon S3 bucket associated with this distribution
      *
@@ -232,14 +232,14 @@ class Amazon_CloudFront_Distribution_Config
         } else if (($key = array_search($indexOrValue, $this->_cname)) !== false) {
             unset($this->_cname[$key]);
         }
-        
+
         return $this;
     }
-    
+
     /**
      * Sets the caller reference identifier
      *
-     * @param string $callerReference A unique identifier that makes sure the 
+     * @param string $callerReference A unique identifier that makes sure the
      *                                request cannot be replayed
      * @return Amazon_CloudFront_Distribution_Config
      */
@@ -248,7 +248,7 @@ class Amazon_CloudFront_Distribution_Config
         $this->_callerReference = $callerReference;
         return $this;
     }
-    
+
     /**
      * Sets the comment
      *
@@ -260,7 +260,7 @@ class Amazon_CloudFront_Distribution_Config
         $this->_comment = $comment;
         return $this;
     }
-    
+
     /**
      * Sets whether to enable this distribution to accept requests from end users
      *
@@ -272,7 +272,7 @@ class Amazon_CloudFront_Distribution_Config
         $this->_enabled = $enabled;
         return $this;
     }
-    
+
     /**
      * Sets the Amazon S3 bucket to associate with this distribution
      *

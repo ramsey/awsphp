@@ -42,25 +42,25 @@ class Amazon_CloudFront_Distribution
      * @var string
      */
     protected $_etag;
-    
+
     /**
      * The distribution's ID
      * @var string
      */
     protected $_id;
-    
+
     /**
      * The date/time this distribution was last modified
      * @var string
      */
     protected $_lastModifiedTime;
-    
+
     /**
      * The status of the distribution, either "Deployed" or "InProgress"
      * @var string
      */
     protected $_status;
-    
+
     /**
      * Creates an instance of an Amazon CloudFront Distribution
      *
@@ -74,7 +74,7 @@ class Amazon_CloudFront_Distribution
         if (!is_null($etag)) {
             $this->setEtag($etag);
         }
-        
+
         // If the DistributionConfig element is present, then use it to create
         // the config object. Otherwise, this must be a DistributionSummary
         // element, so pass the entire node to create the config object.
@@ -89,7 +89,7 @@ class Amazon_CloudFront_Distribution
         $this->_lastModifiedTime = (string) $sxe->LastModifiedTime;
         $this->_status = (string) $sxe->Status;
     }
-    
+
     /**
      * Returns the Amazon_Distribution_Config object for this distribution
      *
@@ -120,7 +120,7 @@ class Amazon_CloudFront_Distribution
     {
         return $this->_etag;
     }
-    
+
     /**
      * Returns the ID for this distribution
      *
@@ -130,7 +130,7 @@ class Amazon_CloudFront_Distribution
     {
         return $this->_id;
     }
-    
+
     /**
      * Returns the last modified time for this distribution
      *
@@ -140,7 +140,7 @@ class Amazon_CloudFront_Distribution
     {
         return $this->_lastModifiedTime;
     }
-    
+
     /**
      * Returns the status for this distribution
      *
