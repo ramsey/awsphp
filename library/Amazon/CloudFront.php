@@ -6,9 +6,10 @@
  *
  * This source file is subject to the Simplified BSD License that is bundled
  * with this package in the file LICENSE.
- * It is also available through the world-wide-web at this URL:
+ * It is also available through the World Wide Web at this URL:
  * http://awsphp.googlecode.com/svn/trunk/LICENSE
  *
+ * @category awsphp
  * @package Amazon
  * @subpackage CloudFront
  * @copyright Copyright (c) 2009, Ben Ramsey (benramsey.com)
@@ -17,6 +18,7 @@
  */
 
 /**
+ * @category awsphp
  * @package Amazon
  * @subpackage CloudFront
  * @copyright Copyright (c) 2009, Ben Ramsey (benramsey.com)
@@ -62,6 +64,12 @@ class Amazon_CloudFront
     protected $_httpDate;
 
     /**
+     * The request object to use when making requests
+     * @var Amazon_Request_Interface
+     */
+    protected $_request;
+
+    /**
      * AWS secret access key
      * @var string
      */
@@ -72,13 +80,20 @@ class Amazon_CloudFront
      *
      * @param string $accessKeyId AWS access key ID
      * @param string $secretAccessKey AWS secret access key
+     * @param Amazon_Request_Interface $request The request object to use
      * @return void
      */
-    public function __construct($accessKeyId, $secretAccessKey)
+    public function __construct($accessKeyId,
+                                $secretAccessKey,
+                                Amazon_Request_Interface $request = null)
     {
         $this->_accessKeyId = $accessKeyId;
         $this->_secretAccessKey = $secretAccessKey;
         $this->_httpDate = utf8_encode(gmdate('D, j M Y H:i:s \G\M\T'));
+
+        if (!is_null($request)) {
+            $this->_request = $request;
+        }
     }
 
     /**
@@ -120,139 +135,55 @@ class Amazon_CloudFront
      * @param array $headers Optionally, additional headers to add to the request
      * @return mixed
      * @throws Amazon_CloudFront_Exception
-     * @todo Use Zend_Http_Client here for a much cleaner implementation
      */
     protected function _sendRequest($method, $requestUri, $body = null, array $headers = array())
     {
-        // Build the request
-        $request  = "{$method} {$requestUri} HTTP/1.1\r\n";
-        $request .= "Host: " . self::HOST . "\r\n";
-        $request .= "Date: {$this->_httpDate}\r\n";
-        $request .= "x-amz-date: {$this->_httpDate}\r\n";
-        $request .= "Authorization: {$this->_getAuthorizationHeader()}\r\n";
-
-        // If the mbstring extension is enabled and function overloading is
-        // set to overload string functions, then use mb_strlen() to determine
-        // the byte length of the string.
-        if (!is_null($body)) {
-            if (ini_get('mbstring.func_overload') & 2) {
-                $length = mb_strlen($body, '8bit');
-            } else {
-                $length = strlen($body);
-            }
-            $request .= "Content-Length: {$length}\r\n";
-            $request .= "Content-Type: application/xml\r\n";
+        if (is_null($this->_request)) {
+            require_once 'Amazon/CloudFront/Exception.php';
+            throw new Amazon_CloudFront_Exception(
+                'Request object must first be set with setRequest()');
         }
+
+        // Build the request
+        $this->_request->setMethod($method);
+        $this->_request->setUri('https://' . self::HOST . $requestUri);
+
+        $this->_request->setHeader('Date', $this->_httpDate);
+        $this->_request->setHeader('x-amz-date', $this->_httpDate);
+        $this->_request->setHeader('Authorization', $this->_getAuthorizationHeader());
 
         // Add additional headers to the request
         foreach ($headers as $header => $value) {
-            $request .= trim($header) . ': ' . trim($value) . "\r\n";
+            $this->_request->setHeader($header, $value);
         }
-
-        $request .= "Connection: close\r\n\r\n";
 
         if (!is_null($body)) {
-            $request .= $body;
+            $this->_request->setBody($body, 'text/xml');
         }
 
-        // Create the socket connection and write to it
-        $socket = @stream_socket_client('ssl://' . self::HOST . ':443',
-                                        $errno,
-                                        $errstr,
-                                        30,
-                                        STREAM_CLIENT_CONNECT);
+        // Send the request
+        $response = $this->_request->send();
 
-        if (! @fwrite($socket, $request)) {
+        if (!($response instanceof Amazon_Response_Interface)) {
             require_once 'Amazon/CloudFront/Exception.php';
-            throw new Amazon_CloudFront_Exception('Error writing request to server');
-        }
-
-        $status = '';
-        $responseHeaders = array();
-        $responseBody = '';
-
-        // Get the response status and headers
-        while (($line = @fgets($socket)) !== false) {
-            if (strpos($line, 'HTTP') !== false) {
-                $status = $line;
-            } else {
-                if (rtrim($line) === '') break;
-                $header = explode(':', $line, 2);
-                $responseHeaders[trim($header[0])] = trim($header[1]);
-            }
-        }
-        $responseHeaders = array_change_key_case($responseHeaders, CASE_LOWER);
-
-        // Read to the end of the response
-        if (isset($responseHeaders['transfer-encoding'])
-            && strtolower($responseHeaders['transfer-encoding']) == 'chunked') {
-
-            do {
-                $line  = @fgets($socket);
-                $chunk = $line;
-
-                // Figure out the next chunk size
-                $chunksize = trim($line);
-                if (! ctype_xdigit($chunksize)) {
-                    @fclose($socket);
-                    require_once 'Amazon/CloudFront/Exception.php';
-                    throw new Amazon_CloudFront_Exception('Invalid chunk size "' .
-                        $chunksize . '" unable to read chunked body');
-                }
-
-                // Convert the hexadecimal value to plain integer
-                $chunksize = hexdec($chunksize);
-
-                // Read chunk
-                $left_to_read = $chunksize;
-                while ($left_to_read > 0) {
-                    $line = @fread($socket, $left_to_read);
-                    if ($line === false || strlen($line) === 0)
-                    {
-                        break;
-                    } else {
-                        $chunk .= $line;
-                        $left_to_read -= strlen($line);
-                    }
-
-                    // Break if the connection ended prematurely
-                    if (feof($socket)) break;
-                }
-
-                $chunk .= @fgets($socket);
-                $responseBody .= $chunk;
-            } while ($chunksize > 0);
-
-        } else {
-            while (($line = @fgets($socket)) !== false) {
-                $responseBody .= $line;
-            }
-        }
-
-        if (isset($responseHeaders['connection']) && strtolower($responseHeaders['connection']) == 'close') {
-            @fclose($socket);
-        }
-
-        // Get the status code
-        preg_match('(\d{3})', $status, $matches);
-        $statusCode = (isset($matches[0]) ? $matches[0] : null);
-
-        if (is_null($statusCode)) {
-            require_once 'Amazon/CloudFront/Exception.php';
-            throw new Amazon_CloudFront_Exception('Error receiving response from server');
+            throw new Amazon_CloudFront_Exception(
+                'Response does not conform to Amazon_Response_Interface');
         }
 
         // If the status code is in the 200 series and there is no response
         // body, then simply return true.
-        if ($statusCode >= 200 && $statusCode < 300 && empty($responseBody)) {
-            if (isset($responseHeaders['etag'])) {
-                return $responseHeaders['etag'];
+        if ($response->getStatus() >= 200
+            && $response->getStatus() < 300
+            && strlen(trim($response->getBody())) == 0) {
+
+            if (!is_null($response->getHeader('ETag'))) {
+                return $response->getHeader('ETag');
             }
             return true;
         }
 
         // Create DOMDocument from the response body
-        preg_match('(<[^\?].*[^\?]>)', $responseBody, $matches);
+        preg_match('(<[^\?].*[^\?]>)', $response->getBody(), $matches);
 
         if (isset($matches[0])) {
             $dom = new DOMDocument('1.0', 'UTF-8');
@@ -263,16 +194,10 @@ class Amazon_CloudFront
             throw new Amazon_CloudFront_Exception('XML document not found in response body');
         }
 
-        // Capture the ETag header, if present
-        $etag = null;
-        if (isset($responseHeaders['etag'])) {
-            $etag = $responseHeaders['etag'];
-        }
-
         switch ($dom->documentElement->nodeName) {
             case 'Distribution':
                 require_once 'Amazon/CloudFront/Distribution.php';
-                return new Amazon_CloudFront_Distribution($sxe, $etag);
+                return new Amazon_CloudFront_Distribution($sxe, $response->getHeader('ETag'));
                 break;
             case 'DistributionList':
                 require_once 'Amazon/CloudFront/Distribution/List.php';
@@ -285,7 +210,7 @@ class Amazon_CloudFront
             case 'ErrorResponse':
                 require_once 'Amazon/CloudFront/Exception.php';
                 $message = "{$sxe->Error->Code}: {$sxe->Error->Message}";
-                throw new Amazon_CloudFront_Exception($message, $statusCode);
+                throw new Amazon_CloudFront_Exception($message, $response->getStatus());
                 break;
             default:
                 require_once 'Amazon/CloudFront/Exception.php';
@@ -385,6 +310,17 @@ class Amazon_CloudFront
 
         return $this->_sendRequest('GET', $uri);
     }
+
+    /**
+     * Sets the request object to use for Amazon CloudFront requests
+     *
+     * @param Amazon_Request_Interface $request
+     * @return Amazon_CloudFront
+     */
+     public function setRequest(Amazon_Request_Interface $request)
+     {
+         $this->_request = $request;
+     }
 
     /**
      * Updates a distribution's configuration and returns true on success
